@@ -1,7 +1,7 @@
 # pyongyang
-The simplest way to integrate with JS dependencies which are designed for the Web. Utilize any web dependencies as a regular hook within [**React Native**]().
+The simplest way to integrate with JS dependencies which are designed for the Web. Utilize any web dependencies as a regular hook within [**React Native**](https://reactnative.dev).
 
-> **Note:** Pyongyang is experimental. Don't do anything sensitive or important with it, just have fun.
+> ⚠️ **Warning:** Pyongyang is experimental. Don't do anything sensitive or important with it, just have fun.
 
 ## 🚀 Getting Started
 
@@ -15,9 +15,9 @@ yarn add react-native-webview pyongyang
 
 ### 1. Hello, world!
 
-In the following example, we show how simple it is to invoke a JavaScript runtime running in a hidden [`WebView`](). First, we declare a [`Pyongyang`]() [**Provider**]() at the root of the application. Inside the `Hi` component, we make a call to the `pyongyang` [**hook**]().
+In the following example, we show how simple it is to invoke a JavaScript runtime running in a hidden managed [`WebView`](). First, we declare a [`Pyongyang`](./) [**Provider**](https://reactjs.org/docs/context.html) at the root of the application; this component manages the instantiation of `WebView`s to execute your scripts.
 
-Upon load, the defined script is executed by an anonymous WebView, which cannot be seen or interacted with (`pyongyang` is designed for pure computation).
+Inside the `Hello` component, we make a call to the `pyongyang` [**hook**](https://reactjs.org/docs/hooks-intro.html):
 
 ```javascript
 import * as React from "react";
@@ -33,9 +33,11 @@ export default function () {
 }
 ```
 
+Upon load, the defined script is executed by an anonymous WebView, which cannot be seen or interacted with. This is because `pyongyang` is designed for pure computation.
+
 ### 2. Variables
 
-Let's make things a little more complicated. This time, using the `variables` option, we can pass data from the React Native runtime into the target JavaScript engine. These variables can be referenced in supplied code by prefixing the variable name with a `$`.
+Let's make things a little more complicated. This time, using the `variables` parameter, we can pass data from the React Native runtime into the target JavaScript engine. These variables can be referenced in supplied code by prefixing the variable name with a `$`.
 
 In this instance, the variable `name` is referenced using `$name`.
 
@@ -53,11 +55,11 @@ export default function () {
 }
 ```
 
-> Note that your code is executed within an `async` block.
+> **Note:** Notice that your code is executed within an `async` block.
 
 ### 3. Callbacks
 
-It's also simple to accept callbacks from [`pyongyang`](). Here, the `onMessage` callback is referenced via `$onMessage`.
+It's also simple to accept callbacks from [`pyongyang`](./). Here, the `onMessage` callback is referenced via `$onMessage`.
 
 ```javascript
 import * as React from "react";
@@ -77,9 +79,9 @@ export default function () {
 
 ### 4. Dependencies
 
-Here's where things get interesting. It's possible to pass [**CDN**]() script references to make available to your JavaScript hook using the `resources` prop.
+Here's where things get interesting. It's possible to pass [**CDN**](https://www.jsdelivr.com/) script references into `pyongyang`, which become available in the window object. These external JavaScript resources can be specified using the `resources` prop.
 
-For example, it's trivial to utilize the [**Interplanetary File System**]() from inside [**React Native**]()!
+In the example below, it's trivial to utilize the [**Interplanetary File System (IPFS)**](https://ipfs.io/) directly inline, without making any native changes.
 
 ```javascript
 import * as React from "react";
