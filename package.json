@@ -24,6 +24,12 @@
   "scripts": {
     "build": "rm -rf dist ; yarn ; babel src --out-dir dist ; rm -rf node_modules"
   },
+  "keywords": [
+    "react-native",
+    "webview",
+    "graphql",
+    "ipfs"
+  ],
   "name": "pyongyang",
   "version": "0.0.1-alpha.1",
   "description": "⚛️ 📱 The quickest way to utilize web dependencies inside React Native.",
