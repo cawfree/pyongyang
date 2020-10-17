@@ -1,0 +1,38 @@
+{
+  "dependencies": {
+    "deepmerge": "^4.2.2",
+    "nanoid": "^3.1.12",
+    "react-native-webview-modal": "^0.0.1-alpha.7",
+    "use-deep-compare-effect": "^1.4.0",
+    "xss": "^1.0.8"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.12.1",
+    "@babel/core": "^7.12.3",
+    "@babel/node": "^7.12.1",
+    "@babel/polyfill": "^7.12.1",
+    "@babel/preset-env": "^7.12.1",
+    "@babel/preset-react": "^7.12.1",
+    "husky": "^4.3.0",
+    "jest": "^26.5.3",
+    "leasot": "^11.3.0",
+    "prettier": "^2.1.2",
+    "prop-types": "^15.7.2",
+    "react": "^16.14.0",
+    "react-native": "^0.63.3"
+  },
+  "scripts": {
+    "build": "rm -rf dist ; yarn ; babel src --out-dir dist ; rm -rf node_modules"
+  },
+  "name": "pyongyang",
+  "version": "0.0.1-alpha.0",
+  "description": "⚛️ 📱 The quickest way to utilize web dependencies inside React Native.",
+  "main": "dist",
+  "repository": "https://github.com/cawfree/pyongyang",
+  "author": "Alex Thomas (@cawfree) <hello@cawfree.com>",
+  "license": "MIT",
+  "private": false,
+  "peerDependencies": {
+    "react-native-webview": "^10.9.2"
+  }
+}
