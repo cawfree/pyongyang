@@ -1,7 +1,7 @@
 # pyongyang
-The simplest way to integrate with JS dependencies which are designed for the Web. Utilize any web dependencies as a regular hook within [**React Native**](https://reactnative.dev).
+The simplest way to integrate with JS dependencies designed for the Web within [**React Native**](https://reactnative.dev).
 
-> ⚠️ **Warning:** Pyongyang is experimental. Don't do anything sensitive or important with it, just have fun.
+> ⚠️ **Warning:** Pyongyang is super experimental. Don't do anything sensitive or important with it, just have fun. 🙏
 
 ## 🚀 Getting Started
 
