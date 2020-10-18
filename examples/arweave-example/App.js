@@ -25,7 +25,6 @@ function Arweave() {
       }}
     />
   );
-  return null;
 }
 
 export default () => (
