@@ -46,7 +46,18 @@ function Interpreter({
   useDeepCompareEffect(() => {
     setJs(JavaScriptObfuscator.obfuscate(
     `
+// https://flaviocopes.com/how-to-list-object-methods-javascript/
+const getMethods = (obj) => {
+  let properties = new Set()
+  let currentObj = obj
+  do {
+    Object.getOwnPropertyNames(currentObj).map(item => properties.add(item))
+  } while ((currentObj = Object.getPrototypeOf(currentObj)))
+  return [...properties.keys()].filter(item => typeof obj[item] === 'function')
+};
+
 const simpleCrypto = new SimpleCrypto("${secretKey}");
+
 const shouldPostMessage = (method) => (...params) => {
   const dataToSend = simpleCrypto.encrypt(JSON.stringify({ method, params }));
   /* react-native */
@@ -59,31 +70,33 @@ const shouldPostMessage = (method) => (...params) => {
     : document.location,
   );
 };
+
 (async () => {
-try {
-  const result = await (async () => { ${encodeSrc(src, variables, callbacks)} })();
-  if (result === undefined || result === null) {
-    return shouldPostMessage("$onCompleted")([]);
-  } else if (typeof result === "object") {
-    const futures = Object.freeze(Object.fromEntries(
-      Object.entries(result)
-        .filter(([k, v]) => typeof v === "function")
-        .map(([k, v]) => [k, async (taskId, ...args) => {
-          try {
-            shouldPostMessage("$onTaskCompleted")([taskId, await v(...args)]);
-          } catch (e) {
-            shouldPostMessage("$onTaskError")([taskId, e]);
-          }
-        }]),
-    ));
-    window.$Pyongyang = (e) => {
-      const [func, k, ...args] = simpleCrypto.decrypt(e);
-      return futures[func](k, ...args);
-    };
-    return shouldPostMessage("$onCompleted")(Object.keys(futures));
-  }
-  throw \`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`;
-} catch (e) { shouldPostMessage("$onError")(e) }
+  try {
+    const result = await (async () => { ${encodeSrc(src, variables, callbacks)} })();
+    if (result === undefined || result === null) {
+      return shouldPostMessage("$onCompleted")([]);
+    } else if (typeof result === "object") {
+      const futures = Object.freeze(
+        getMethods(result).reduce((obj, k) => ({
+          ...obj,
+          [k]: async (taskId, ...args) => {
+            try {
+              shouldPostMessage("$onTaskCompleted")([taskId, await result[k](...args)]);
+            } catch (e) {
+              shouldPostMessage("$onTaskError")([taskId, e]);
+            }
+          },
+        }), {}),
+      );
+      window.$Pyongyang = (e) => {
+        const [func, k, ...args] = simpleCrypto.decrypt(e);
+        return futures[func](k, ...args);
+      };
+      return shouldPostMessage("$onCompleted")(Object.keys(futures));
+    }
+    throw \`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`;
+  } catch (e) { shouldPostMessage("$onError")(e) }
 })();
     `, obfuscation));
   }, [setJs, obfuscation, secretKey, encodeSrc, variables, callbacks]);

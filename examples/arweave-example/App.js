@@ -1,29 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview-modal";
+
 import Pyongyang, { pyongyang } from "pyongyang";
 
 function Arweave() {
   const [html, setHtml] = useState("");
   const { loading, error, futures: { getData } } = pyongyang(`
-    const arweave = Arweave.init();
-    const data = await arweave.transactions.getData($transactionId, {decode: true, string: true});
-    $setHtml(data);
-    return {
-      getData: () => alert('hi!'),
-    };
-  `, {
-    variables: {
-      transactionId: "bNbA3TEQVL60xlgCcqdz4ZPHFZ711cZ3hmkpGttDt_U",
-    },
-    callbacks: { setHtml },
-    resources: ["https://unpkg.com/arweave/bundles/web.bundle.js"],
-  });
+    const { transactions } = Arweave.init();
+    return transactions;
+  `, { resources: ["https://unpkg.com/arweave/bundles/web.bundle.js"] });
   useEffect(() => {
     !!getData && (async () => {
-      getData();
+      setHtml(await getData(
+        "bNbA3TEQVL60xlgCcqdz4ZPHFZ711cZ3hmkpGttDt_U",
+        { decode: true, string: true },
+      ));
     })();
-  }, [getData]);
+  }, [getData, setHtml]);
   return (
     <WebView
       originWhiteList={["*"]}
