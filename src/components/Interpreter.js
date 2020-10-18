@@ -5,6 +5,7 @@ import { WebView } from "react-native-webview-modal";
 import { nanoid } from "nanoid/non-secure";
 import SimpleCrypto from "simple-crypto-js";
 import JavaScriptObfuscator from "javascript-obfuscator";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
 const styles = StyleSheet.create({
   container: {
@@ -23,11 +24,13 @@ function Interpreter({
   obfuscation,
   onCompleted,
   onError,
+  originWhitelist,
 }) {
   const [tasks, setTasks] = useState({});
   const ref = useRef();
   const [secretKey] = useState(() => `${nanoid()}${nanoid()}${nanoid()}`);
   const [simpleCrypto] = useState(() => new SimpleCrypto(secretKey));
+  const [js, setJs] = useState("/**/");
   const encodeSrc = useCallback((src, variables, callbacks) => {
     const srcWithVariables = Object.entries(variables)
       .reduce(
@@ -40,6 +43,50 @@ function Interpreter({
         srcWithVariables,
       );
   }, []);
+  useDeepCompareEffect(() => {
+    setJs(JavaScriptObfuscator.obfuscate(
+    `
+const simpleCrypto = new SimpleCrypto("${secretKey}");
+const shouldPostMessage = (method) => (...params) => {
+  const dataToSend = simpleCrypto.encrypt(JSON.stringify({ method, params }));
+  /* react-native */
+  if (window.ReactNativeWebView) {
+    return window.ReactNativeWebView.postMessage(dataToSend);
+  }
+  /* browser */
+  return top.postMessage(dataToSend, (window.location != window.parent.location)
+    ? document.referrer
+    : document.location,
+  );
+};
+(async () => {
+try {
+  const result = await (async () => { ${encodeSrc(src, variables, callbacks)} })();
+  if (result === undefined || result === null) {
+    return shouldPostMessage("$onCompleted")([]);
+  } else if (typeof result === "object") {
+    const futures = Object.freeze(Object.fromEntries(
+      Object.entries(result)
+        .filter(([k, v]) => typeof v === "function")
+        .map(([k, v]) => [k, async (taskId, ...args) => {
+          try {
+            shouldPostMessage("$onTaskCompleted")([taskId, await v(...args)]);
+          } catch (e) {
+            shouldPostMessage("$onTaskError")([taskId, e]);
+          }
+        }]),
+    ));
+    window.$Pyongyang = (e) => {
+      const [func, k, ...args] = simpleCrypto.decrypt(e);
+      return futures[func](k, ...args);
+    };
+    return shouldPostMessage("$onCompleted")(Object.keys(futures));
+  }
+  throw \`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`;
+} catch (e) { shouldPostMessage("$onError")(e) }
+})();
+    `, obfuscation));
+  }, [setJs, obfuscation, secretKey, encodeSrc, variables, callbacks]);
   const onMessage = useCallback(({ nativeEvent: { data }}) => {
     try { 
       const { method, params } = simpleCrypto.decrypt(data);
@@ -91,54 +138,12 @@ function Interpreter({
       return onError(e);
     }
   }, [callbacks, onError, onCompleted, ref, setTasks, simpleCrypto]);
-  const js = JavaScriptObfuscator.obfuscate(
-    `
-const simpleCrypto = new SimpleCrypto("${secretKey}");
-const shouldPostMessage = (method) => (...params) => {
-  const dataToSend = simpleCrypto.encrypt(JSON.stringify({ method, params }));
-  /* react-native */
-  if (window.ReactNativeWebView) {
-    return window.ReactNativeWebView.postMessage(dataToSend);
-  }
-  /* browser */
-  return top.postMessage(dataToSend, (window.location != window.parent.location)
-    ? document.referrer
-    : document.location,
-  );
-};
-(async () => {
-try {
-  const result = await (async () => { ${encodeSrc(src, variables, callbacks)} })();
-  if (result === undefined || result === null) {
-    return shouldPostMessage("$onCompleted")([]);
-  } else if (typeof result === "object") {
-    const futures = Object.freeze(Object.fromEntries(
-      Object.entries(result)
-        .filter(([k, v]) => typeof v === "function")
-        .map(([k, v]) => [k, async (taskId, ...args) => {
-          try {
-            shouldPostMessage("$onTaskCompleted")([taskId, await v(...args)]);
-          } catch (e) {
-            shouldPostMessage("$onTaskError")([taskId, e]);
-          }
-        }]),
-    ));
-    window.$Pyongyang = (e) => {
-      const [func, k, ...args] = simpleCrypto.decrypt(e);
-      return futures[func](k, ...args);
-    };
-    return shouldPostMessage("$onCompleted")(Object.keys(futures));
-  }
-  throw \`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`;
-} catch (e) { shouldPostMessage("$onError")(e) }
-})();
-    `, obfuscation);
   // TODO: throw on key overlap
   return (
     <View style={styles.container} pointerEvents="none">
       <WebView
         ref={ref}
-        originWhitelist={["*"]}
+        originWhitelist={originWhitelist}
         onMessage={onMessage}
         source={{
           baseUrl: '',
@@ -168,6 +173,7 @@ Interpreter.propTypes = {
   obfuscation: PropTypes.shape({}),
   onCompleted: PropTypes.func.isRequired,
   onError: PropTypes.func.isRequired,
+  originWhitelist: PropTypes.arrayOf(PropTypes.string),
 };
 
 Interpreter.defaultProps = {
@@ -185,6 +191,7 @@ Interpreter.defaultProps = {
     splitStrings: true,
     stringArrayThreshold: 1,
   },
+  originWhitelist: ["*"],
 };
 
-export default Interpreter;
+export default React.memo(Interpreter);
