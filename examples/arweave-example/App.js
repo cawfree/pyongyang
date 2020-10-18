@@ -5,11 +5,13 @@ import Pyongyang, { pyongyang } from "pyongyang";
 
 function Arweave() {
   const [html, setHtml] = useState("");
-  const { loading, error, futures } = pyongyang(`
+  const { loading, error, futures: { getData } } = pyongyang(`
     const arweave = Arweave.init();
     const data = await arweave.transactions.getData($transactionId, {decode: true, string: true});
     $setHtml(data);
-    return {};
+    return {
+      getData: () => alert('hi!'),
+    };
   `, {
     variables: {
       transactionId: "bNbA3TEQVL60xlgCcqdz4ZPHFZ711cZ3hmkpGttDt_U",
@@ -17,6 +19,11 @@ function Arweave() {
     callbacks: { setHtml },
     resources: ["https://unpkg.com/arweave/bundles/web.bundle.js"],
   });
+  useEffect(() => {
+    !!getData && (async () => {
+      getData();
+    })();
+  }, [getData]);
   return (
     <WebView
       originWhiteList={["*"]}
