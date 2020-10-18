@@ -54,7 +54,9 @@ function Interpreter({
               (resolve, reject) => {
                 const taskId = nanoid();
                 setTasks(e => ({ ...e, [taskId]: { resolve, reject } }));
-                ref.current.injectJavaScript(`window.$Pyongyang["${k}"](${[taskId, ...args].map(e => JSON.stringify(e)).join(",")}); true;`);
+                ref.current.injectJavaScript(`window.$Pyongyang("${
+                  simpleCrypto.encrypt(JSON.stringify([k, taskId, ...args]))
+                }"); true;`);
               },
             ),
           }),
@@ -105,30 +107,33 @@ const shouldPostMessage = (method) => (...params) => {
   );
 };
 (async () => {
- try {
-   const result = await (async () => { ${encodeSrc(src, variables, callbacks)} })();
-   if (result === undefined || result === null) {
-     return shouldPostMessage("$onCompleted")([]);
-   } else if (typeof result === "object") {
-     window.$Pyongyang = Object.freeze(Object.fromEntries(
-       Object.entries(result)
-         .filter(([k, v]) => typeof v === "function")
-         .map(([k, v]) => [k, async (taskId, ...args) => {
-           try {
-             shouldPostMessage("$onTaskCompleted")([taskId, await v(...args)]);
-           } catch (e) {
-             shouldPostMessage("$onTaskError")([taskId, e]);
-           }
-         }]),
-     ));
-     return shouldPostMessage("$onCompleted")(Object.keys(window.$Pyongyang));
-   }
-   throw \`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`;
- } catch (e) { shouldPostMessage("$onError")(e) }
+try {
+  const result = await (async () => { ${encodeSrc(src, variables, callbacks)} })();
+  if (result === undefined || result === null) {
+    return shouldPostMessage("$onCompleted")([]);
+  } else if (typeof result === "object") {
+    const futures = Object.freeze(Object.fromEntries(
+      Object.entries(result)
+        .filter(([k, v]) => typeof v === "function")
+        .map(([k, v]) => [k, async (taskId, ...args) => {
+          try {
+            shouldPostMessage("$onTaskCompleted")([taskId, await v(...args)]);
+          } catch (e) {
+            shouldPostMessage("$onTaskError")([taskId, e]);
+          }
+        }]),
+    ));
+    window.$Pyongyang = (e) => {
+      const [func, k, ...args] = simpleCrypto.decrypt(e);
+      return futures[func](k, ...args);
+    };
+    return shouldPostMessage("$onCompleted")(Object.keys(futures));
+  }
+  throw \`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`;
+} catch (e) { shouldPostMessage("$onError")(e) }
 })();
     `, obfuscation);
   // TODO: throw on key overlap
-  // TODO: Prevent call signature being used within scope
   return (
     <View style={styles.container} pointerEvents="none">
       <WebView
