@@ -42,7 +42,7 @@ function Interpreter({
       if (method === "$onError") {
         return onError(...params);
       } else if (method === "$onCompleted") {
-        const [...keys] = params;
+        const [[...keys]] = params;
         const futures = keys.reduce(
           (obj, k) => ({
             ...obj,
