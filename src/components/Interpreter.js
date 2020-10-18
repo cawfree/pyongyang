@@ -84,7 +84,7 @@ const shouldPostMessage = (method) => (...params) => {
             try {
               shouldPostMessage("$onTaskCompleted")([taskId, await result[k](...args)]);
             } catch (e) {
-              shouldPostMessage("$onTaskError")([taskId, e]);
+              shouldPostMessage("$onTaskError")([taskId, e.message ? e.message : e]);
             }
           },
         }), {}),
@@ -95,8 +95,8 @@ const shouldPostMessage = (method) => (...params) => {
       };
       return shouldPostMessage("$onCompleted")(Object.keys(futures));
     }
-    throw \`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`;
-  } catch (e) { shouldPostMessage("$onError")(e) }
+    throw new Error(\`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`);
+  } catch (e) { shouldPostMessage("$onError")(e.message ? e.message : e) }
 })();
     `, obfuscation));
   }, [setJs, obfuscation, secretKey, encodeSrc, variables, callbacks]);
