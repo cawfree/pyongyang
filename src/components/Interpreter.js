@@ -4,7 +4,7 @@ import { View, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview-modal";
 import { nanoid } from "nanoid/non-secure";
 import SimpleCrypto from "simple-crypto-js";
-import xss from "xss";
+import JavaScriptObfuscator from "javascript-obfuscator";
 
 const styles = StyleSheet.create({
   container: {
@@ -20,6 +20,7 @@ function Interpreter({
   variables,
   resources,
   callbacks,
+  obfuscation,
   onCompleted,
   onError,
 }) {
@@ -30,7 +31,7 @@ function Interpreter({
   const encodeSrc = useCallback((src, variables, callbacks) => {
     const srcWithVariables = Object.entries(variables)
       .reduce(
-        (nextSrc, [k, v]) => nextSrc.split(`$${k}`).join(xss(JSON.stringify(v))),
+        (nextSrc, [k, v]) => nextSrc.split(`$${k}`).join(JSON.stringify(v)),
         src,
       );
     return Object.keys(callbacks)
@@ -53,7 +54,7 @@ function Interpreter({
               (resolve, reject) => {
                 const taskId = nanoid();
                 setTasks(e => ({ ...e, [taskId]: { resolve, reject } }));
-                ref.current.injectJavaScript(`window.$Pyongyang["${k}"](${[taskId, ...args].map(e => xss(JSON.stringify(e))).join(",")}); true;`);
+                ref.current.injectJavaScript(`window.$Pyongyang["${k}"](${[taskId, ...args].map(e => JSON.stringify(e)).join(",")}); true;`);
               },
             ),
           }),
@@ -88,6 +89,44 @@ function Interpreter({
       return onError(e);
     }
   }, [callbacks, onError, onCompleted, ref, setTasks, simpleCrypto]);
+  const js = JavaScriptObfuscator.obfuscate(
+    `
+const simpleCrypto = new SimpleCrypto("${secretKey}");
+const shouldPostMessage = (method) => (...params) => {
+  const dataToSend = simpleCrypto.encrypt(JSON.stringify({ method, params }));
+  /* react-native */
+  if (window.ReactNativeWebView) {
+    return window.ReactNativeWebView.postMessage(dataToSend);
+  }
+  /* browser */
+  return top.postMessage(dataToSend, (window.location != window.parent.location)
+    ? document.referrer
+    : document.location,
+  );
+};
+(async () => {
+ try {
+   const result = await (async () => { ${encodeSrc(src, variables, callbacks)} })();
+   if (result === undefined || result === null) {
+     return shouldPostMessage("$onCompleted")([]);
+   } else if (typeof result === "object") {
+     window.$Pyongyang = Object.freeze(Object.fromEntries(
+       Object.entries(result)
+         .filter(([k, v]) => typeof v === "function")
+         .map(([k, v]) => [k, async (taskId, ...args) => {
+           try {
+             shouldPostMessage("$onTaskCompleted")([taskId, await v(...args)]);
+           } catch (e) {
+             shouldPostMessage("$onTaskError")([taskId, e]);
+           }
+         }]),
+     ));
+     return shouldPostMessage("$onCompleted")(Object.keys(window.$Pyongyang));
+   }
+   throw \`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`;
+ } catch (e) { shouldPostMessage("$onError")(e) }
+})();
+    `, obfuscation);
   // TODO: throw on key overlap
   // TODO: Prevent call signature being used within scope
   return (
@@ -99,54 +138,16 @@ function Interpreter({
         source={{
           baseUrl: '',
           html: `
-           <!DOCTYPE html>
-           <html lang="en">
-           <head><meta charset="utf-8"/></head>
-           <body>
-             <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-             <script src="https://cdn.jsdelivr.net/npm/simple-crypto-js@2.5.0/dist/SimpleCrypto.min.js"></script>
-             ${resources.map(e => `<script src="${xss(e)}"></script>`).join("\n")}
-             <script type="text/babel">
-               const simpleCrypto = new SimpleCrypto("${secretKey}");
-               const shouldPostMessage = (method) => (...params) => {
-                 const dataToSend = simpleCrypto.encrypt(JSON.stringify({ method, params }));
-                 /* react-native */
-                 if (window.ReactNativeWebView) {
-                   return window.ReactNativeWebView.postMessage(dataToSend);
-                 }
-                 /* browser */
-                 return top.postMessage(dataToSend, (window.location != window.parent.location)
-                   ? document.referrer
-                   : document.location,
-                 );
-               };
-               (async () => {
-                try {
-                  const result = await (async () => {
-                   ${encodeSrc(src, variables, callbacks)}
-                  })();
-                  if (result === undefined || result === null) {
-                    return shouldPostMessage("$onCompleted")([]);
-                  } else if (typeof result === "object") {
-                    window.$Pyongyang = Object.freeze(Object.fromEntries(
-                      Object.entries(result)
-                        .filter(([k, v]) => typeof v === "function")
-                        .map(([k, v]) => [k, async (taskId, ...args) => {
-                          try {
-                            shouldPostMessage("$onTaskCompleted")([taskId, await v(...args)]);
-                          } catch (e) {
-                            shouldPostMessage("$onTaskError")([taskId, e]);
-                          }
-                        }]),
-                    ));
-                    return shouldPostMessage("$onCompleted")(Object.keys(window.$Pyongyang));
-                  }
-                  throw \`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`;
-                } catch (e) { shouldPostMessage("$onError")(e) }
-               })();
-             </script>
-           </body>
-           </html>
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"/></head>
+<body>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/simple-crypto-js@2.5.0/dist/SimpleCrypto.min.js"></script>
+  ${resources.map(e => `<script src="${e}"></script>`).join("\n")}
+  <script type="text/babel">${js}</script>
+</body>
+</html>
           `
         }}
       />
@@ -159,6 +160,7 @@ Interpreter.propTypes = {
   variables: PropTypes.shape({}).isRequired,
   resources: PropTypes.arrayOf(PropTypes.string).isRequired,
   callbacks: PropTypes.shape({}).isRequired,
+  obfuscation: PropTypes.shape({}),
   onCompleted: PropTypes.func.isRequired,
   onError: PropTypes.func.isRequired,
 };
@@ -168,6 +170,16 @@ Interpreter.defaultProps = {
   variables: {},
   resources: [],
   callbacks: {},
+  obfuscation: {
+    compact: true,
+    controlFlowFlattening: true,
+    controlFlowFlatteningThreshold: 1,
+    numbersToExpressions: true,
+    simplify: true,
+    shuffleStringArray: true,
+    splitStrings: true,
+    stringArrayThreshold: 1,
+  },
 };
 
 export default Interpreter;

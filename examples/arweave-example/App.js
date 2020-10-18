@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { View, StyleSheet } from "react-native";
+import { WebView } from "react-native-webview-modal";
 import Pyongyang, { pyongyang } from "pyongyang";
-import { WebView } from "react-native-webview";
 
 function Arweave() {
   const [html, setHtml] = useState("");
@@ -8,6 +9,7 @@ function Arweave() {
     const arweave = Arweave.init();
     const data = await arweave.transactions.getData($transactionId, {decode: true, string: true});
     $setHtml(data);
+    return arweave.transactions;
   `, {
     variables: {
       transactionId: "bNbA3TEQVL60xlgCcqdz4ZPHFZ711cZ3hmkpGttDt_U",
@@ -28,4 +30,10 @@ function Arweave() {
   return null;
 }
 
-export default () => <Pyongyang><Arweave /></Pyongyang>;
+export default () => (
+  <Pyongyang>
+    <View style={StyleSheet.absoluteFill}>
+      <Arweave />
+    </View>
+  </Pyongyang>
+);
