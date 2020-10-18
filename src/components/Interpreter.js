@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import { View, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview-modal";
 import { nanoid } from "nanoid/non-secure";
+import SimpleCrypto from "simple-crypto-js";
 import xss from "xss";
 
 const styles = StyleSheet.create({
@@ -24,6 +25,8 @@ function Interpreter({
 }) {
   const [tasks, setTasks] = useState({});
   const ref = useRef();
+  const [secretKey] = useState(() => `${nanoid()}${nanoid()}${nanoid()}`);
+  const [simpleCrypto] = useState(() => new SimpleCrypto(secretKey));
   const encodeSrc = useCallback((src, variables, callbacks) => {
     const srcWithVariables = Object.entries(variables)
       .reduce(
@@ -38,7 +41,7 @@ function Interpreter({
   }, []);
   const onMessage = useCallback(({ nativeEvent: { data }}) => {
     try { 
-      const { method, params } = JSON.parse(data);
+      const { method, params } = simpleCrypto.decrypt(data);
       if (method === "$onError") {
         return onError(...params);
       } else if (method === "$onCompleted") {
@@ -81,9 +84,10 @@ function Interpreter({
         return maybeCallback(...params);
       }
     } catch (e) {
+      console.error(e);
       return onError(e);
     }
-  }, [callbacks, onError, onCompleted, ref, setTasks]);
+  }, [callbacks, onError, onCompleted, ref, setTasks, simpleCrypto]);
   // TODO: throw on key overlap
   // TODO: Prevent call signature being used within scope
   return (
@@ -100,10 +104,12 @@ function Interpreter({
            <head><meta charset="utf-8"/></head>
            <body>
              <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+             <script src="https://cdn.jsdelivr.net/npm/simple-crypto-js@2.5.0/dist/SimpleCrypto.min.js"></script>
              ${resources.map(e => `<script src="${xss(e)}"></script>`).join("\n")}
              <script type="text/babel">
+               const simpleCrypto = new SimpleCrypto("${secretKey}");
                const shouldPostMessage = (method) => (...params) => {
-                 const dataToSend = JSON.stringify({ method, params });
+                 const dataToSend = simpleCrypto.encrypt(JSON.stringify({ method, params }));
                  /* react-native */
                  if (window.ReactNativeWebView) {
                    return window.ReactNativeWebView.postMessage(dataToSend);

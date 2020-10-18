@@ -3,6 +3,7 @@
     "deepmerge": "^4.2.2",
     "nanoid": "^3.1.12",
     "react-native-webview-modal": "^0.0.1-alpha.7",
+    "simple-crypto-js": "2.5.0",
     "use-deep-compare-effect": "^1.4.0",
     "xss": "^1.0.8"
   },
