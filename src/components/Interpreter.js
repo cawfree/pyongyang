@@ -103,12 +103,16 @@ function Interpreter({
              ${resources.map(e => `<script src="${xss(e)}"></script>`).join("\n")}
              <script type="text/babel">
                const shouldPostMessage = (method) => (...params) => {
+                 const dataToSend = JSON.stringify({ method, params });
+                 /* react-native */
                  if (window.ReactNativeWebView) {
-                   return window.ReactNativeWebView.postMessage(JSON.stringify({
-                     method,
-                     params,
-                   }));
+                   return window.ReactNativeWebView.postMessage(dataToSend);
                  }
+                 /* browser */
+                 return top.postMessage(dataToSend, (window.location != window.parent.location)
+                   ? document.referrer
+                   : document.location,
+                 );
                };
                (async () => {
                 try {
