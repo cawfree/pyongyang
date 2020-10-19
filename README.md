@@ -144,5 +144,41 @@ export default function () {
 }
 ```
 
+### 6. Using Refs
+
+Because the JavaScript code you execute happens inside of a `WebView`, complex objects cannot be passed back into React Native. Therefore, if you wish to retain the high-level representation of an object for use later, you need to use a `$ref`, which is basically a reference to an object which can be retained and used later.
+
+```javascript
+import * as React from "react";
+
+import Pyongyang, { pyongyang } from "pyongyang";
+
+function Refs() {
+  const { loading, error, futures } = pyongyang`
+  return {
+    getSomeRef: msg => $ref({
+      someValue: 5,
+      doSomething: () => alert(msg),
+    }),
+    doSomethingWith: e => e.doSomething(),
+  };
+`;
+  React.useEffect(() => {
+    !!Object.keys(futures.length) && (async () => {
+      const { doSomethingWith, getSomeRef } = futures;
+      const [x, y] = await getSomeRef("Hello!");
+      console.log(x); // e.g. "2Zr_daUmdBwjxfMQIT0er"
+      console.log(y); // { someValue: 5 }
+      await doSomethingWith(x); // alert('Hello!')
+    })();
+  }, [futures]);
+  return null;
+}
+
+export default function () {
+  return <Pyongyang><Futures /></Pyongyang>;
+}
+```
+
 ## ✌️ License
 [**MIT**](./LICENSE)
