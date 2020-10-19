@@ -25,6 +25,7 @@ export default function pyongyang(
   const opts = deepmerge(defaultOptions, options);
   const [id] = useState(nanoid);
   const { onMount, onUnmount } = usePyongyang();
+  // TODO: implement on completed
   const onCompleted = useCallback(({ futures }) => {
     return setState({
       ...defaultOptions,

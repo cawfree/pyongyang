@@ -71,8 +71,35 @@ const shouldPostMessage = (method) => (...params) => {
   );
 };
 
+// https://github.com/ai/nanoid/issues/127
+const nanoid = () => {
+  const chars =
+    '1234567890' +
+    'abcdefghijklmnopqrstuvwxyz' +
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const charsLen = chars.length;
+  const length = 21;
+  const id = [];
+  for (let i = 0; i < length; i++) {
+    id.push(chars[(Math.round(Math.random() * 100)) % charsLen]);
+  }
+  return id.join('');
+};
+
 (async () => {
   try {
+    /* init */
+    window.$PyongyangRefs = {};
+
+    const $ref = async (value) => {
+      const result = await value;
+      const id = nanoid();
+      /* encapsulate id within speech marks for simplified lookup */
+      Object.assign(window.$PyongyangRefs, { [id]: result });
+      /* return the id and the result */
+      return [id, result];
+    };
+
     const result = await (async () => { ${encodeSrc(src, variables, callbacks)} })();
     if (result === undefined || result === null) {
       return shouldPostMessage("$onCompleted")([]);
@@ -91,7 +118,16 @@ const shouldPostMessage = (method) => (...params) => {
       );
       window.$Pyongyang = (e) => {
         const [func, k, ...args] = simpleCrypto.decrypt(e);
-        return futures[func](k, ...args);
+        const resolvedArgs = args.map(
+          (e) => {
+            /* replace refs */
+            if (typeof e === "string" && window.$PyongyangRefs.hasOwnProperty(e)) {
+              return window.$PyongyangRefs[e];
+            }
+            return e;
+          },
+        );
+        return futures[func](k, ...resolvedArgs);
       };
       return shouldPostMessage("$onCompleted")(Object.keys(futures));
     }

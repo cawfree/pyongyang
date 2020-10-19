@@ -6,25 +6,33 @@ import Pyongyang, { pyongyang } from "pyongyang";
 
 function Arweave() {
   const [html, setHtml] = useState("");
+
   const { error, loading, futures } = pyongyang(`
     const arweave = Arweave.init();
     const { wallets } = arweave;
     return {
-      generateWallet: () => wallets.generate(),
+      // Persist the value for later.
+      generateWalletRef: () => $ref(wallets.generate()),
       getWalletBalance: address => wallets.getBalance(address),
       getWalletJwkToAddress: key => wallets.jwkToAddress(key),
       getWalletLastTransactionID: address => wallets.getLastTransactionID(address),
-      createTransaction: (...args) => arweave.createTransaction(...args),
-      createTaggedTransaction: async (data, key, tags = {}) => Object.entries(tags)
-        .reduce(
-          (transaction, [k, v]) => {
-            transaction.addTag(k, v);
-            return transaction;
-          },
-          await arweave.createTransaction(data, key),
+      createTransactionRef: (...args) => $ref(arweave.createTransaction(...args)),
+      createTaggedTransactionRef: async (data, key, tags = {}) => $ref(
+        Object.entries(tags)
+          .reduce(
+            (transaction, [k, v]) => {
+              transaction.addTag(k, v);
+              return transaction;
+            },
+            await arweave.createTransaction(data, key),
+          ),
         ),
       arToWinston: (...args) => arweave.ar.arToWinston(...args),
-      getData: (...args) => arweave.transactions.getData(...args),
+      getTransactionData: (...args) => arweave.transactions.getData(...args),
+      signTransaction: (...args) => arweave.transactions.sign(...args),
+      postTransaction: (...args) => arweave.transactions.post(...args),
+      getTransaction: (...args) => arweave.transactions.get(...args),
+      arql: (...args) => arweave.arql(...args),
     };
   `, { resources: ["https://unpkg.com/arweave/bundles/web.bundle.js"] });
 
@@ -33,34 +41,46 @@ function Arweave() {
   useEffect(() => {
     Object.keys(futures).length && (async () => {
       const {
-        generateWallet,
+        generateWalletRef,
         getWalletBalance,
         getWalletJwkToAddress,
         getWalletLastTransactionID,
-        createTransaction,
-        createTaggedTransaction,
+        createTransactionRef,
+        createTaggedTransactionRef,
         arToWinston,
-
-        getData,
+        getTransactionData,
+        signTransaction,
+        postTransaction,
+        getTransaction,
+        arql,
       } = futures;
-      const key = await generateWallet();
-      const address = await getWalletJwkToAddress(key);
+      const [walletRef, wallet] = await generateWalletRef();
+      const address = await getWalletJwkToAddress(walletRef);
       const balance = await getWalletBalance(address);
       const lastTransactionId = await getWalletLastTransactionID(address);
-      const transaction = await createTransaction({
+      const [transactionRef] = await createTransactionRef({
         data: '<html><head><meta charset="UTF-8"><title>Hello world!</title></head><body></body></html>',
-      }, key);
-      const taggedTransaction = await createTaggedTransaction({
+      }, walletRef);
+      const [taggedTransactionRef] = await createTaggedTransactionRef({
         data: '<html><head><meta charset="UTF-8"><title>Hello world!</title></head><body></body></html>',
-      }, key, { "Content-Type": "text/html" });
-      const valueTransaction = await createTransaction({
+      }, walletRef, { "Content-Type": "text/html" });
+      const [valueTransactionRef] = await createTransactionRef({
         target: '1seRanklLU_1VTGkEk7P0xAwMJfA7owA1JHW5KyZKlY',
         quantity: await arToWinston('10.5'),
-      }, key);
+      }, walletRef);
 
-      console.warn({ valueTransaction });
+      await signTransaction(taggedTransactionRef, walletRef);
+      const response = await postTransaction(taggedTransactionRef);
 
-      setHtml(await getData(
+      const [txid] = await arql({
+        op: "equals",
+        expr1: "from",
+        expr2: address,
+      });
+
+      console.warn({ txid });
+
+      setHtml(await getTransactionData(
         "bNbA3TEQVL60xlgCcqdz4ZPHFZ711cZ3hmkpGttDt_U",
         { decode: true, string: true },
       ));
