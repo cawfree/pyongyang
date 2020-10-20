@@ -109,7 +109,14 @@ const nanoid = () => {
           ...obj,
           [k]: async (taskId, ...args) => {
             try {
-              shouldPostMessage("$onTaskCompleted")([taskId, await result[k](...args)]);
+              const solution = await result[k](...args);
+              const isRef = k.charAt(0) === "$";
+              if (isRef) {
+                const [ref] = await $ref(solution);
+                shouldPostMessage("$onTaskCompleted")([taskId, ref]);
+              } else {
+                shouldPostMessage("$onTaskCompleted")([taskId, solution]);
+              }
             } catch (e) {
               shouldPostMessage("$onTaskError")([taskId, e.message ? e.message : e]);
             }

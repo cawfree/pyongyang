@@ -11,22 +11,21 @@ function Arweave() {
     const arweave = Arweave.init();
     const { wallets } = arweave;
     return {
-      // Persist the value for later.
-      generateWalletRef: () => $ref(wallets.generate()),
+      /* refs */
+      $generateWalletRef: () => wallets.generate(),
+      $createTransactionRef: (...args) => arweave.createTransaction(...args),
+      $createTaggedTransactionRef: async (data, key, tags = {}) => Object.entries(tags)
+        .reduce(
+          (transaction, [k, v]) => {
+            transaction.addTag(k, v);
+            return transaction;
+          },
+          await arweave.createTransaction(data, key),
+        ),
+      /* plain */
       getWalletBalance: address => wallets.getBalance(address),
       getWalletJwkToAddress: key => wallets.jwkToAddress(key),
-      getWalletLastTransactionID: address => wallets.getLastTransactionID(address),
-      createTransactionRef: (...args) => $ref(arweave.createTransaction(...args)),
-      createTaggedTransactionRef: async (data, key, tags = {}) => $ref(
-        Object.entries(tags)
-          .reduce(
-            (transaction, [k, v]) => {
-              transaction.addTag(k, v);
-              return transaction;
-            },
-            await arweave.createTransaction(data, key),
-          ),
-        ),
+      getWalletLastTransactionID: address => wallets.getLastTransactionID(address), 
       arToWinston: (...args) => arweave.ar.arToWinston(...args),
       getTransactionData: (...args) => arweave.transactions.getData(...args),
       signTransaction: (...args) => arweave.transactions.sign(...args),
@@ -41,12 +40,14 @@ function Arweave() {
   useEffect(() => {
     Object.keys(futures).length && (async () => {
       const {
-        generateWalletRef,
+        /* refs */
+        $generateWalletRef,
+        $createTransactionRef,
+        $createTaggedTransactionRef,
+        /* plain */
         getWalletBalance,
         getWalletJwkToAddress,
         getWalletLastTransactionID,
-        createTransactionRef,
-        createTaggedTransactionRef,
         arToWinston,
         getTransactionData,
         signTransaction,
@@ -54,17 +55,17 @@ function Arweave() {
         getTransaction,
         arql,
       } = futures;
-      const [walletRef, wallet] = await generateWalletRef();
+      const walletRef = await $generateWalletRef();
       const address = await getWalletJwkToAddress(walletRef);
       const balance = await getWalletBalance(address);
       const lastTransactionId = await getWalletLastTransactionID(address);
-      const [transactionRef] = await createTransactionRef({
+      const transactionRef = await $createTransactionRef({
         data: '<html><head><meta charset="UTF-8"><title>Hello world!</title></head><body></body></html>',
       }, walletRef);
-      const [taggedTransactionRef] = await createTaggedTransactionRef({
+      const taggedTransactionRef = await $createTaggedTransactionRef({
         data: '<html><head><meta charset="UTF-8"><title>Hello world!</title></head><body></body></html>',
       }, walletRef, { "Content-Type": "text/html" });
-      const [valueTransactionRef] = await createTransactionRef({
+      const valueTransactionRef = await $createTransactionRef({
         target: '1seRanklLU_1VTGkEk7P0xAwMJfA7owA1JHW5KyZKlY',
         quantity: await arToWinston('10.5'),
       }, walletRef);
@@ -72,11 +73,7 @@ function Arweave() {
       await signTransaction(taggedTransactionRef, walletRef);
       const response = await postTransaction(taggedTransactionRef);
 
-      const [txid] = await arql({
-        op: "equals",
-        expr1: "from",
-        expr2: address,
-      });
+      const [txid] = await arql({ op: "equals", expr1: "from", expr2: address });
 
       console.warn({ txid });
 
