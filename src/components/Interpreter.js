@@ -4,8 +4,8 @@ import { View, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview-modal";
 import { nanoid } from "nanoid/non-secure";
 import SimpleCrypto from "simple-crypto-js";
-import JavaScriptObfuscator from "javascript-obfuscator";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { mangle } from "gnirts";
 
 const styles = StyleSheet.create({
   container: {
@@ -21,7 +21,6 @@ function Interpreter({
   variables,
   resources,
   callbacks,
-  obfuscation,
   onCompleted,
   onError,
   originWhitelist,
@@ -44,8 +43,7 @@ function Interpreter({
       );
   }, []);
   useDeepCompareEffect(() => {
-    setJs(JavaScriptObfuscator.obfuscate(
-    `
+    setJs(`
 // https://flaviocopes.com/how-to-list-object-methods-javascript/
 const getMethods = (obj) => {
   let properties = new Set()
@@ -56,7 +54,7 @@ const getMethods = (obj) => {
   return [...properties.keys()].filter(item => typeof obj[item] === 'function')
 };
 
-const simpleCrypto = new SimpleCrypto("${secretKey}");
+const simpleCrypto = new SimpleCrypto(${mangle(`/* @mangle */"${secretKey}"/* @/mangle */`)});
 
 const shouldPostMessage = (method) => (...params) => {
   const dataToSend = simpleCrypto.encrypt(JSON.stringify({ method, params }));
@@ -141,8 +139,8 @@ const nanoid = () => {
     throw new Error(\`Encountered invalid futures, "\${typeof result}". Expected one of null, undefined, object.\`);
   } catch (e) { shouldPostMessage("$onError")(e.message ? e.message : e) }
 })();
-    `, obfuscation));
-  }, [setJs, obfuscation, secretKey, encodeSrc, variables, callbacks]);
+    `);
+  }, [setJs, secretKey, encodeSrc, variables, callbacks]);
   const onMessage = useCallback(({ nativeEvent: { data }}) => {
     try { 
       const { method, params } = simpleCrypto.decrypt(data);
@@ -194,7 +192,6 @@ const nanoid = () => {
       return onError(e);
     }
   }, [callbacks, onError, onCompleted, ref, setTasks, simpleCrypto]);
-  // TODO: throw on key overlap
   return (
     <View style={styles.container} pointerEvents="none">
       <WebView
@@ -226,7 +223,6 @@ Interpreter.propTypes = {
   variables: PropTypes.shape({}).isRequired,
   resources: PropTypes.arrayOf(PropTypes.string).isRequired,
   callbacks: PropTypes.shape({}).isRequired,
-  obfuscation: PropTypes.shape({}),
   onCompleted: PropTypes.func.isRequired,
   onError: PropTypes.func.isRequired,
   originWhitelist: PropTypes.arrayOf(PropTypes.string),
@@ -237,16 +233,6 @@ Interpreter.defaultProps = {
   variables: {},
   resources: [],
   callbacks: {},
-  obfuscation: {
-    compact: true,
-    controlFlowFlattening: true,
-    controlFlowFlatteningThreshold: 1,
-    numbersToExpressions: true,
-    simplify: true,
-    shuffleStringArray: true,
-    splitStrings: true,
-    stringArrayThreshold: 1,
-  },
   originWhitelist: ["*"],
 };
 

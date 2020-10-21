@@ -36,7 +36,7 @@ function Arweave() {
   `, { resources: ["https://unpkg.com/arweave/bundles/web.bundle.js"] });
 
   !!error && console.error(error);
-
+ 
   useEffect(() => {
     Object.keys(futures).length && (async () => {
       const {
