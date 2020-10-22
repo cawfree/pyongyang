@@ -5,7 +5,7 @@ The simplest way to integrate with JS dependencies designed for the Web within [
 
 ### 🔥 Features
   - Execute **any** standard web dependency within React Native!
-    - [`Web3`](), [`Arweave`](), [`IPFS`]() etc.
+    - [`Web3`](https://github.com/ethereum/web3.js/), [`Arweave`](https://www.arweave.org/), [`IPFS`](https://ipfs.io/) etc.
   - Back-and forth encryption.
     - Data is passed back and forth using an encrypted dynamic secret persisted in obfuscated source.
     - Every time your hook is amounted, the secret is recycled.
